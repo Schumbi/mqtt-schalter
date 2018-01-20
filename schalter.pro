@@ -62,8 +62,9 @@ DEFINES += "WEBSOCKETS_NETWORK_TYPE=NETWORK_ESP8266_ASYNC"
 
 OTHER_FILES += platformio.ini
 
-SOURCES += src/strip.cpp
-SOURCES += src/flaschengeist.cpp
+SOURCES += src/strip.cpp \
+    src/schalter.cpp
+SOURCES +=
 HEADERS += src/strings.h \
     src/strings.hpp \
     src/strip.hpp \
