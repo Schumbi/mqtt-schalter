@@ -8,7 +8,15 @@ void update_mdns(void*);
 void ISR_switch(void*);
 void setup_wifi();
 void setup_OTA();
-void callback(const MQTT::Publish& msg);
+void mqtt_subscribe_callback(const MQTT::Publish& msg);
+
+void ntp_loop(void*);
+void startUDP();
+uint32_t getTime();
+void sendNTPpacket(IPAddress& address);
+inline int getSeconds(uint32_t UNIXTime);
+inline int getMinutes(uint32_t UNIXTime);
+inline int getHours(uint32_t UNIXTime);
 
 static uint16 mqtt_lastId;
 
@@ -23,8 +31,21 @@ static PubSubClient client(espClient);
 static volatile bool switchedOn = false;
 static volatile bool transitionOccured = false;
 
+// Getting time from NTP
+WiFiUDP udp;
+IPAddress timeServerIP;
+const char* NTPServerName = "pool.ntp.org";
+const int NTP_PACKET_SIZE = 48;
+byte NTPBuffer[NTP_PACKET_SIZE];
+unsigned long intervalNTP = 120000; // Request NTP time every minute
+unsigned long prevNTP = 0;
+unsigned long lastNTPResponse = millis();
+uint32_t timeUNIX = 0;
+unsigned long prevActualTime = 0;
+uint8 tmz = 1;
+
 // Ticker to update brightness
-static TickerScheduler ticker(1);
+static TickerScheduler ticker(2);
 
 void ISR_switch()
 {
@@ -49,14 +70,105 @@ void setup()
 
     mqtt_lastId = -1;
     client.set_server(mqtt_server, mqtt_server_port);
-    client.set_callback(callback);
+    client.set_callback(mqtt_subscribe_callback);
 
     // initialize scheduler
     ticker.add(0, 500, publish_switchState, nullptr, true);
+    ticker.add(1, 500, ntp_loop, nullptr, true);
     ticker.enableAll();
 
     pinMode(D5, INPUT);
     attachInterrupt(digitalPinToInterrupt(D5), ISR_switch, FALLING);
+
+    startUDP();
+    if (!WiFi.hostByName(NTPServerName, timeServerIP)) {
+        Serial.println("DNS lookup of time server failed!");
+    } else {
+        Serial.print("Timer server IP:\t");
+        Serial.println(timeServerIP);
+        Serial.println("\r\nSending NTP request... ");
+        sendNTPpacket(timeServerIP);
+    }
+}
+
+void ntp_loop(void*)
+{
+    unsigned long currentMillis = millis();
+
+    if (currentMillis - prevNTP > intervalNTP) { // If a minute has passed since last NTP request
+        prevNTP = currentMillis;
+        sendNTPpacket(timeServerIP); // Send an NTP request
+    }
+
+    uint32_t time = getTime(); // Check if an NTP response has arrived and get the (UNIX) time
+    if (time) { // If a new timestamp has been received
+        timeUNIX = time;
+        lastNTPResponse = currentMillis;
+    } else if ((currentMillis - lastNTPResponse) > 3600000) {
+        Serial.println("More than 1 hour since last NTP response!");
+        Serial.flush();
+    }
+
+    uint32_t actualTime = timeUNIX + (currentMillis - lastNTPResponse) / 1000;
+    if (actualTime != prevActualTime && timeUNIX != 0) { // If a second has passed since last print
+        prevActualTime = actualTime;
+        uint32_t localTime = actualTime + tmz * 3600;
+        int h = getHours(localTime);
+        int m = getMinutes(localTime);
+        int s = getSeconds(localTime);
+        Serial.printf("%-15s%02d:%02d:%02d", "\rLocal time:", h, m, s);
+    }
+}
+
+void startUDP()
+{
+    Serial.println("Starting UDP");
+    udp.begin(123);
+    Serial.print("Local port:\t");
+    Serial.println(udp.localPort());
+    Serial.println();
+}
+
+uint32_t getTime()
+{
+    if (udp.parsePacket() == 0) { // If there's no response (yet)
+        return 0;
+    }
+    udp.read(NTPBuffer, NTP_PACKET_SIZE); // read the packet into the buffer
+    // Combine the 4 timestamp bytes into one 32-bit number
+    uint32_t NTPTime = (NTPBuffer[40] << 24) | (NTPBuffer[41] << 16) | (NTPBuffer[42] << 8) | NTPBuffer[43];
+    // Convert NTP time to a UNIX timestamp:
+    // Unix time starts on Jan 1 1970. That's 2208988800 seconds in NTP time:
+    const uint32_t seventyYears = 2208988800UL;
+    // subtract seventy years:
+    uint32_t UNIXTime = NTPTime - seventyYears;
+    return UNIXTime;
+}
+
+void sendNTPpacket(IPAddress& address)
+{
+    memset(NTPBuffer, 0, NTP_PACKET_SIZE); // set all bytes in the buffer to 0
+    // Initialize values needed to form NTP request
+    NTPBuffer[0] = 0b11100011; // LI, Version, Mode
+    // send a packet requesting a timestamp:
+    udp.beginPacket(address, 123); // NTP requests are to port 123
+    udp.write(NTPBuffer, NTP_PACKET_SIZE);
+    udp.endPacket();
+}
+
+inline int getSeconds(uint32_t UNIXTime)
+{
+    return UNIXTime % 60;
+}
+
+inline int getMinutes(uint32_t UNIXTime)
+{
+    return UNIXTime / 60 % 60;
+}
+
+inline int getHours(uint32_t UNIXTime)
+{
+    return UNIXTime / 3600 % 24;
 }
 
 void setup_wifi()
@@ -85,7 +197,7 @@ void setup_wifi()
     delay(100);
 }
 
-void callback(const MQTT::Publish& msg)
+void mqtt_subscribe_callback(const MQTT::Publish& msg)
 {
     if (msg.topic().equals(mqtt_state_string)) {
         // check if there was a state before we loose connection
@@ -153,7 +265,6 @@ void loop()
     ticker.update();
 
     update_mdns(nullptr);
-    httpServer.handleClient();
 }
 
 void publish_switchState(void*)
@@ -193,6 +304,7 @@ void setup_OTA()
     digitalWrite(BUILTIN_LED, LOW);
 
     MDNS.begin(hostname);
+    Serial.println(String("Set path to: ") + update_path + " User: " + update_username + "Pass: " + update_passwort + " ");
     httpUpdater.setup(&httpServer, update_path, update_username, update_passwort);
     httpServer.begin();
     MDNS.addService("http", "tcp", update_port);

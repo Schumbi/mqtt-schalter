@@ -8,6 +8,7 @@
 #include <ESP8266mDNS.h>
 #include <PubSubClient.h>
 #include <TickerScheduler.h>
+#include <WiFiUdp.h>
 
 #include "conf.hpp"
 
