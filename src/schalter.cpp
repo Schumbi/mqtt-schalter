@@ -148,9 +148,12 @@ void loop()
     } else {
         client.loop();
     }
+
     // do what, you need to do
     ticker.update();
+
     update_mdns(nullptr);
+    httpServer.handleClient();
 }
 
 void publish_switchState(void*)
