@@ -8,11 +8,7 @@ else {
 
 INCLUDEPATH += "$$(PWD)/src"
 INCLUDEPATH += "$$(PWD)/lib/TickerScheduler"
-INCLUDEPATH += "$$(PWD)/.piolibdeps/NeoPixelBus_ID547/src"
-INCLUDEPATH += "$$(PWD)/.piolibdeps/PubSubClient_ID89/src"
-INCLUDEPATH += "$$(PWD)/.piolibdeps/ArduinoJson_ID64"
-INCLUDEPATH += "$$(PWD)/.piolibdeps/ESPAsyncTCP_ID305/src"
-INCLUDEPATH += "$$(PWD)/.piolibdeps/WebSockets_ID549/src"
+INCLUDEPATH += "$$(PWD)/lib/PubSubClient/src"
 INCLUDEPATH += "$${HOMEDIR}/.platformio/packages/framework-arduinoespressif8266/tools/sdk/include"
 INCLUDEPATH += "$${HOMEDIR}/.platformio/packages/framework-arduinoespressif8266/tools/sdk/lwip/include"
 INCLUDEPATH += "$${HOMEDIR}/.platformio/packages/framework-arduinoespressif8266/cores/esp8266"
@@ -68,7 +64,8 @@ SOURCES +=
 HEADERS += src/strings.h \
     src/strings.hpp \
     src/strip.hpp \
-    src/conf.hpp
+    src/conf.hpp \
+    src/schalter.h
 SOURCES += src/strip_prog.cpp
 HEADERS += src/strip.h
 
