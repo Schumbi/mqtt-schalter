@@ -12,6 +12,8 @@
 
 #include "conf.hpp"
 
+#define STARTDATE 1514761200l
+
 // net_dev
 static const char* hostname = WEBNAME;
 // wifi
@@ -21,6 +23,10 @@ static const char* mypass = wifi_config::ssid_password;
 static const char* mqtt_server = net_dev::mqtt_device::mqtt_server;
 static const int mqtt_server_port = net_dev::mqtt_device::mqtt_server_port;
 static const String mqtt_state_string = net_dev::mqtt_device::mqtt_device_topic;
+static const String mqtt_time_string = net_dev::mqtt_device::mqtt_device_topic_time;
+static const String mqtt_time_tick = net_dev::mqtt_device::mqtt_device_topic_timetick;
+static const String mqtt_date_string = net_dev::mqtt_device::mqtt_device_topic_date;
+
 // web update
 static const char* update_path = net_dev::update::web_update_path;
 static const int update_port = net_dev::update::update_port;

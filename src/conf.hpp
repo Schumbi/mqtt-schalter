@@ -41,6 +41,15 @@ namespace mqtt_device {
 
     extern const char* mqtt_device_topic;
     const char* mqtt_device_topic = MQTTSTATE;
+
+    extern const char* mqtt_device_topic_time;
+    const char* mqtt_device_topic_time = MQTTROOT WEBNAME "/time";
+
+    extern const char* mqtt_device_topic_timetick;
+    const char* mqtt_device_topic_timetick = MQTTROOT WEBNAME "/timetick";
+
+    extern const char* mqtt_device_topic_date;
+    const char* mqtt_device_topic_date = MQTTROOT WEBNAME "/date";
 }
 }
 #endif
